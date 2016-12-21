@@ -2,13 +2,9 @@
 title: API Reference
 
 language_tabs:
-  - shell
-  - ruby
-  - python
-  - javascript
+  - c++
 
 toc_footers:
-  - <a href='#'>Sign Up for a Developer Key</a>
   - <a href='https://github.com/tripit/slate'>Documentation Powered by Slate</a>
 
 includes:
@@ -17,173 +13,114 @@ includes:
 search: true
 ---
 
-# Introduction
-
-Welcome to the Kittn API! You can use our API to access Kittn API endpoints, which can get information on various cats, kittens, and breeds in our database.
-
-We have language bindings in Shell, Ruby, and Python! You can view code examples in the dark area to the right, and you can switch the programming language of the examples with the tabs in the top right.
-
-This example API documentation page was created with [Slate](https://github.com/tripit/slate). Feel free to edit it and use it as a base for your own API's documentation.
-
-# Authentication
-
-> To authorize, use this code:
-
-```ruby
-require 'kittn'
-
-api = Kittn::APIClient.authorize!('meowmeowmeow')
-```
-
-```python
-import kittn
-
-api = kittn.authorize('meowmeowmeow')
-```
-
-```shell
-# With shell, you can just pass the correct header with each request
-curl "api_endpoint_here"
-  -H "Authorization: meowmeowmeow"
-```
-
-```javascript
-const kittn = require('kittn');
-
-let api = kittn.authorize('meowmeowmeow');
-```
-
-> Make sure to replace `meowmeowmeow` with your API key.
-
-Kittn uses API keys to allow access to the API. You can register a new Kittn API key at our [developer portal](http://example.com/developers).
-
-Kittn expects for the API key to be included in all API requests to the server in a header that looks like the following:
-
-`Authorization: meowmeowmeow`
-
+# About
 <aside class="notice">
-You must replace <code>meowmeowmeow</code> with your personal API key.
+Copyright (C) 2016 All rights reserved except where required by law.
 </aside>
+Runs on Grow Nodes ESP8266 MCUs. PlatformIO project.
 
-# Kittens
+# Usage
 
-## Get All Kittens
+## 0. Connect hardware
+See pin map in `constants.h`
 
-```ruby
-require 'kittn'
+## 1. Build and flash the firmware
+PlatformIO might throw an error abount empty projects. Verify `homie-esp8266` dir is in `.piolibdeps` dir and ignore the error.
 
-api = Kittn::APIClient.authorize!('meowmeowmeow')
-api.kittens.get
-```
+**Optional**
+Modify `.piolibdeps\homie-esp8266\src\Homie\Boot\BootConfig.cpp` to have the correct MQTT server address or the MQTT coms will not work.
 
-```python
-import kittn
+## 2. Factory Reset (optional)
+Hold down the FLASH button on the Node MCU for 5 seconds or until the Node MCU onboard LED turns solid blue.
 
-api = kittn.authorize('meowmeowmeow')
-api.kittens.get()
-```
+## 3. Provision WiFi
+Conncet your phone to a `2.4 GHz` access point and launch the [Android app](https://play.google.com/store/apps/details?id=com.cmmakerclub.iot.esptouch&hl=en) to provision the device.
 
-```shell
-curl "http://example.com/api/kittens"
-  -H "Authorization: meowmeowmeow"
-```
+# Base System
+## Time
+Time is set to Unix Epoch on bootup.
 
-```javascript
-const kittn = require('kittn');
+If there is WiFi, the time is synced via NTP as UTC time.
 
-let api = kittn.authorize('meowmeowmeow');
-let kittens = api.kittens.get();
-```
+## Network Status LED
+Blue LED, `HOMIE_STATUS_PIN`, default `D0` (built in NodeMCU blue led)
 
-> The above command returns JSON structured like this:
+LED Behavior | Meaning
+---------- | -------
+Solid | WiFi is ready to provision via ESP Touch
+Slow Blink | Attempting to connect to WiFi
+Fast Blink | Attempting to connect to MQTT server
 
-```json
-[
-  {
-    "id": 1,
-    "name": "Fluffums",
-    "breed": "calico",
-    "fluffiness": 6,
-    "cuteness": 7
-  },
-  {
-    "id": 2,
-    "name": "Max",
-    "breed": "unknown",
-    "fluffiness": 5,
-    "cuteness": 10
-  }
-]
-```
 
-This endpoint retrieves all kittens.
+# Grow Program
 
-### HTTP Request
+## Grow Errors
+The system publishes grow errors over MQTT
 
-`GET http://example.com/api/kittens`
+## Notifications
 
-### Query Parameters
+Will be sent only if the WiFi and MQTT are connected. Relayed to app as push notifications.
 
-Parameter | Default | Description
---------- | ------- | -----------
-include_cats | false | If set to true, the result will also include cats.
-available | true | If set to false, the result will include kittens that have already been adopted.
+* ✔ Notify over MQTT every 6 hours if air temp is above `AIR_TEMP_OVERHEAT`
+    * Tell user to move setup to cooler place
+* ✔ Notify over MQTT if mock water level sensor indicates low water
+   * or notify user every 3 days to check of water level
+* Notify user to check pH every day
+* Notify user if grow node loses connection
+* Notify user to add nutrients following Grow Chart
+    * Water first (calculated based on # of plants), pH/EC before filling water?
+* Notify user to change water and measure nutrients on 10th day
 
-<aside class="success">
-Remember — a happy kitten is an authenticated kitten!
-</aside>
+## Grow light
+* ✔ Turns on and off at preset hour (actually seconds for development)
+* ✔ If unconfigured, defualts to on at 6 AM and off at 6 PM. See default grow light definitions in `constants.h`
+* ✔ Turns off if air temp is above `AIR_TEMP_OVERHEAT`
+* (selling point?) Light on dimmer following realistic light cycles?
 
-## Get a Specific Kitten
+## Air pump
+* ✔ Always on but manually controllable
 
-```ruby
-require 'kittn'
+## Vent Fan
+* ✔ Always on but manually controllable
+* (Speed control) If temp > temp_max, change speed to full power until temp is 5 degrees before optimal
 
-api = Kittn::APIClient.authorize!('meowmeowmeow')
-api.kittens.get(2)
-```
+## Water pump
+* ✔ Always on but manually controllable
+    * FOR ONE UNIT: Water pump on 15 minutes, off for 15 minutes
+* Turn off if water level is too low and the pump will run dry
 
-```python
-import kittn
+## Sensors
+* Communicate with Arduino over I2C
+* Water temp sensor
+* Air temp sensor
+* pH sensor
+* EC sensor
+* Water Level sensor
 
-api = kittn.authorize('meowmeowmeow')
-api.kittens.get(2)
-```
 
-```shell
-curl "http://example.com/api/kittens/2"
-  -H "Authorization: meowmeowmeow"
-```
+# Structure
+```c++
+void setup {
+  GrowProgram.setup();
+  // etc...
+}
 
-```javascript
-const kittn = require('kittn');
-
-let api = kittn.authorize('meowmeowmeow');
-let max = api.kittens.get(2);
-```
-
-> The above command returns JSON structured like this:
-
-```json
-{
-  "id": 2,
-  "name": "Max",
-  "breed": "unknown",
-  "fluffiness": 5,
-  "cuteness": 10
+void loop {
+  GrowProgram.loop();
+  // etc...
 }
 ```
+The system uses state machines and non-preemptive multitasking strategy.
 
-This endpoint retrieves a specific kitten.
+<aside class="notice">
+You must avoid using delay/blocking functions.
+</aside>
 
-<aside class="warning">Inside HTML code blocks like this one, you can't use Markdown, so use <code>&lt;code&gt;</code> blocks to denote code.</aside>
 
-### HTTP Request
+# WiFi Configuration
+Handled by ESP Touch / Smart Config and custom `homie-esp8266` library.
 
-`GET http://example.com/kittens/<ID>`
+# MQTT
+Handled by `homie-esp8266` library.
 
-### URL Parameters
-
-Parameter | Description
---------- | -----------
-ID | The ID of the kitten to retrieve
-
+Server URL is hardcoded in `homie-esp8266\src\Homie\Boot\BootConfig.cpp`
